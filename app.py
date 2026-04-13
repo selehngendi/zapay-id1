@@ -134,7 +134,7 @@ def ask_ai(question, is_mc, previous_attempts=None):
     }
     
     try:
-        res = requests.post(API_URL, headers=headers, json=payload, timeout=15)
+        res = requests.post(API_URL, headers=headers, json=payload, timeout=30)
         ans = res.json()['choices'][0]['message']['content'].strip().split('\n')[0]
         final = re.sub(r"^(Answer|Result|Option):\s*", "", ans, flags=re.IGNORECASE).strip()
         final = re.sub(r"^[A-Z][\.\)\-\s]+", "", final).strip()
