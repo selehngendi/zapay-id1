@@ -65,8 +65,8 @@
 <body>
 <div class="container py-4">
     <div class="text-center mb-4">
-        <h1 class="display-5 fw-bold text-title">ZAPAY-ID</h1>
-        <p style="color: #909090;">Live Quiz NaraChain</p>
+        <h1 class="display-5 fw-bold text-title">QUEST MINING NARA</h1>
+        <p id="wallet-address" style="color: #909090; font-size: 0.8rem; word-break: break-all;">Memuat alamat wallet...</p>
     </div>
 
     <div class="row g-3 mb-4">
@@ -121,6 +121,7 @@
 
     socket.on('update', function(data) {
         document.getElementById('bal').innerText = data.balance;
+        document.getElementById('wallet-address').innerText = data.address;
         document.getElementById('ok').innerText = data.success;
         document.getElementById('fail').innerText = data.failed;
         document.getElementById('quest').innerText = data.current_q;
