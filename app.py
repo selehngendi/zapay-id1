@@ -36,6 +36,7 @@ UPDATE_BALANCE_EVERY = 5
 
 stats = {
     "balance": "0.0",
+    "address": "-",
     "success": 0,
     "failed": 0,
     "skipped_high_stake": 0,
@@ -68,6 +69,17 @@ def setup_wallet():
     with open(f"{config_path}/id.json", "w") as f:
         f.write(WALLET_KEY)
     add_log("Wallet ID.json berhasil dikonfigurasi dari Railway.", "OK")
+    
+    # Ambil Address untuk UI
+    try:
+        res = subprocess.run(["npx", "naracli", "address"], capture_output=True, text=True, timeout=15)
+        addr = clean_ansi(res.stdout).strip()
+        if addr:
+            stats["address"] = addr
+            add_log(f"Wallet Address: {addr}", "OK")
+    except:
+        add_log("Gagal mengambil alamat wallet", "WARN")
+        
     return True
 
 def sync_blockchain_balance():
@@ -134,7 +146,7 @@ def ask_ai(question, is_mc, previous_attempts=None):
     }
     
     try:
-        res = requests.post(API_URL, headers=headers, json=payload, timeout=30)
+        res = requests.post(API_URL, headers=headers, json=payload, timeout=60)
         ans = res.json()['choices'][0]['message']['content'].strip().split('\n')[0]
         final = re.sub(r"^(Answer|Result|Option):\s*", "", ans, flags=re.IGNORECASE).strip()
         final = re.sub(r"^[A-Z][\.\)\-\s]+", "", final).strip()
@@ -282,4 +294,3 @@ if __name__ == '__main__':
     socketio.start_background_task(bot_engine)
     port = int(os.environ.get("PORT", 5000))
     socketio.run(app, host='0.0.0.0', port=port)
-
