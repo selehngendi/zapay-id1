@@ -100,9 +100,11 @@ def get_quest_json():
         res = subprocess.run(["npx", "naracli", "quest", "get", "--json"],
                           capture_output=True, text=True, timeout=10)
         if res.returncode == 0:
-            return json.loads(res.stdout)
-    except:
-        pass
+            # Penting: Bersihkan ANSI codes (warna) sebelum di-parse sebagai JSON
+            cleaned = clean_ansi(res.stdout)
+            return json.loads(cleaned)
+    except Exception as e:
+        print(f"DEBUG Error: Gagal parse JSON quest: {str(e)}")
     return None
 
 def is_free_tier(quest_data):
@@ -114,13 +116,18 @@ def is_free_tier(quest_data):
     if not quest_data.get('stakeRequired', True):
         return True
     
-    # Check stake amount
-    stake_str = quest_data.get('stakeRequirement', '0')
-    try:
-        stake = float(stake_str)
-        return stake <= MAX_STAKE
-    except:
-        return False
+    # Check stake amount - Ambil angka saja (menghilangkan 'NARA' dsb)
+    stake_raw = str(quest_data.get('stakeRequirement', '0'))
+    match = re.search(r"([\d\.]+)", stake_raw)
+    
+    if match:
+        try:
+            stake = float(match.group(1))
+            return stake <= MAX_STAKE
+        except:
+            return False
+    
+    return False
 
 def ask_ai(question, is_mc, previous_attempts=None):
     if not FIREWORKS_API_KEY:
@@ -161,26 +168,50 @@ def ask_ai(question, is_mc, previous_attempts=None):
 def submit_answer(answer):
     if not answer:
         return "ERROR"
-    add_log(f"Mengirim Jawaban: {answer}", "INFO")
-    try:
-        res = subprocess.run(["npx", "naracli", "quest", "answer", answer],
-                          capture_output=True, text=True, timeout=60)
-        out = clean_ansi(res.stdout + "\n" + res.stderr).strip()
-        out_lower = out.lower()
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        prefix = f"(Coba {attempt+1}/{max_retries}) " if attempt > 0 else ""
+        add_log(f"{prefix}Mengirim Jawaban: {answer}", "INFO")
         
-        if any(w in out_lower for w in ["success", "reward", "congratulations", "submitted", "already"]):
-            return "SUCCESS"
-        
-        if any(w in out_lower for w in ["wrong", "incorrect", "invalid"]):
-            add_log(f"Jawaban Salah: {out[:60]}...", "WARN")
-            return "WRONG"
+        try:
+            # Meningkatkan timeout ke 120 detik karena ZK proof bisa memakan waktu lama
+            res = subprocess.run(["npx", "naracli", "quest", "answer", answer],
+                              capture_output=True, text=True, timeout=120)
             
-        add_log(f"Gagal (System/RPC): {out[:60]}...", "WARN")
-        return "ERROR"
-        
-    except Exception as e:
-        add_log(f"Kesalahan Sistem: {str(e)[:50]}", "ERROR")
-        return "ERROR"
+            out = clean_ansi(res.stdout + "\n" + res.stderr).strip()
+            out_lower = out.lower()
+            
+            if any(w in out_lower for w in ["success", "reward", "congratulations", "submitted", "already", "6012"]):
+                if "6012" in out_lower:
+                    add_log("Sudah Terjawab (Error 6012 - Double Check)", "OK")
+                return "SUCCESS"
+            
+            if any(w in out_lower for w in ["wrong", "incorrect", "invalid"]):
+                add_log(f"Jawaban Salah: {out[:100]}...", "WARN")
+                return "WRONG"
+                
+            # Log lebih panjang untuk membantu debugging RPC/System error
+            full_error = out[:300].replace('\n', ' ')
+            add_log(f"Gagal (System/RPC): {full_error}...", "WARN")
+            
+            # Retry hanya untuk System/RPC error
+            if attempt < max_retries - 1:
+                wait_time = 60 # Sesuai permintaan user: Jedanya 1 menit
+                add_log(f"Menunggu {wait_time}s sebelum mencoba lagi (mencegah double submit)...", "INFO")
+                gevent.sleep(wait_time)
+            
+        except subprocess.TimeoutExpired:
+            add_log(f"Timeout (120s) saat Generating ZK Proof/Submitting", "ERROR")
+            if attempt < max_retries - 1:
+                gevent.sleep(5)
+        except Exception as e:
+            add_log(f"Kesalahan Sistem: {str(e)[:100]}", "ERROR")
+            if attempt >= max_retries - 1:
+                return "ERROR"
+            gevent.sleep(5)
+            
+    return "ERROR"
 
 def bot_engine():
     gevent.sleep(3)
@@ -264,8 +295,9 @@ def bot_engine():
                     history.append(ans)
                     gevent.sleep(2)
                 else:
-                    # ERROR (System/RPC) - Jangan masukkan ke history agar bisa dicoba lagi
-                    gevent.sleep(2)
+                    # ERROR (System/RPC) setelah 3 kali internal retry di submit_answer.
+                    # Biasanya Node sangat sibuk, lebih baik stop round ini daripada spam log.
+                    break
             
 
             
