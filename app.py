@@ -245,6 +245,11 @@ def bot_engine():
             # Skip jika round sama atau slots penuh
             if curr_r == last_r:
                 continue
+            
+            # DEBUG: Tampilkan data STAKE yang diterima ke Web UI
+            json_str = json.dumps(quest_data)
+            add_log(f"DEBUG STAKE R {curr_r}: Bool={quest_data.get('stakeRequired')}, Val='{quest_data.get('stakeRequirement')}'", "INFO")
+            add_log(f"DEBUG RAW: {json_str[:600]}", "INFO")
             if remaining_slots == 0:
                 add_log(f"Round {curr_r}: Slots penuh, skip", "SKIP")
                 last_r = curr_r
@@ -252,12 +257,14 @@ def bot_engine():
             
             # CHECK: Free tier only
             if not is_free_tier(quest_data):
+                print(f"DEBUG SKIP: Quest Data Round {curr_r} -> {json.dumps(quest_data, indent=2)}")
                 add_log(f"Round {curr_r}: HIGH STAKE ({stake_req} NARA) - Skip", "SKIP")
                 stats["skipped_high_stake"] += 1
                 last_r = curr_r
                 continue
             
             # FREE TIER DETECTED!
+            print(f"DEBUG: Quest Data Round {curr_r} -> {json.dumps(quest_data, indent=2)}")
             add_log(f"🔥 Round {curr_r}: FREE TIER! Stake: {stake_req} NARA", "FREE")
             add_log(f"Question: {q_text[:60]}...", "INFO")
             
