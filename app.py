@@ -33,7 +33,7 @@ NARA_RPC_URL = os.getenv("NARA_RPC_URL")
 # Helper function for CLI commands with RPC
 def get_cli_args(cmd_list):
     if NARA_RPC_URL:
-        return cmd_list + ["--node", NARA_RPC_URL]
+        return cmd_list + ["--rpc-url", NARA_RPC_URL.strip()]
     return cmd_list
 
 # FREE TIER SETTINGS
