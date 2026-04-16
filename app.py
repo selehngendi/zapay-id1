@@ -29,6 +29,7 @@ API_URL = "https://api.fireworks.ai/inference/v1/chat/completions"
 MODEL_AI = "accounts/fireworks/models/glm-5p1"
 WALLET_KEY = os.getenv("WALLET_KEY")
 NARA_RPC_URL = os.getenv("NARA_RPC_URL")
+AGENT_NAME_ENV = os.getenv("AGENT_NAME")
 
 # Helper function for CLI commands with RPC
 def get_cli_args(cmd_list):
@@ -44,6 +45,7 @@ UPDATE_BALANCE_EVERY = 5
 stats = {
     "balance": "0.0",
     "address": "-",
+    "agent_name": "-",
     "success": 0,
     "failed": 0,
     "skipped_high_stake": 0,
@@ -87,6 +89,23 @@ def setup_wallet():
     except:
         add_log("Gagal mengambil alamat wallet", "WARN")
         
+    # Cek Nama Agent (Alias)
+    if AGENT_NAME_ENV:
+        stats["agent_name"] = AGENT_NAME_ENV
+        add_log(f"Agent Name: {stats['agent_name']}", "OK")
+    else:
+        # Coba deteksi otomatis dari file config naracli jika ada
+        try:
+            config_file = os.path.expanduser("~/.config/nara/agent-mainnet-api-nara-build.json")
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    data = json.load(f)
+                    if stats["address"] in data:
+                        stats["agent_name"] = data[stats["address"]]
+                        add_log(f"Agent Terdeteksi: {stats['agent_name']}", "OK")
+        except:
+            pass
+            
     return True
 
 def sync_blockchain_balance():
