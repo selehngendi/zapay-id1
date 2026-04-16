@@ -256,7 +256,8 @@ def bot_engine():
             
             curr_r = quest_data.get('round')
             q_text = quest_data.get('question', '')
-            stake_req = quest_data.get('stakeRequirement', '0')
+            # POINT 1: Gunakan stakeLow sebagai acuan utama (mengabaikan stakeRequirement yang lag)
+            stake_req = quest_data.get('stakeLow', '0')
             stake_required = quest_data.get('stakeRequired', True)
             remaining_slots = quest_data.get('remainingRewardSlots', 0)
             
