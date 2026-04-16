@@ -212,8 +212,13 @@ def submit_answer(answer):
         
         try:
             # Meningkatkan timeout ke 120 detik karena ZK proof bisa memakan waktu lama
-            res = subprocess.run(get_cli_args(["naracli", "quest", "answer", answer]),
-                              capture_output=True, text=True, timeout=120)
+            cmd = ["naracli", "quest", "answer", answer]
+            
+            # Tambahkan flag --agent jika nama agent terdaftar
+            if stats.get("agent_name") and stats["agent_name"] != "-":
+                cmd += ["--agent", stats["agent_name"]]
+                
+            res = subprocess.run(get_cli_args(cmd), capture_output=True, text=True, timeout=120)
             
             out = clean_ansi(res.stdout + "\n" + res.stderr).strip()
             out_lower = out.lower()
