@@ -28,6 +28,13 @@ FIREWORKS_API_KEY = os.getenv("FIREWORKS_API_KEY")
 API_URL = "https://api.fireworks.ai/inference/v1/chat/completions"
 MODEL_AI = "accounts/fireworks/models/glm-5p1"
 WALLET_KEY = os.getenv("WALLET_KEY")
+NARA_RPC_URL = os.getenv("NARA_RPC_URL")
+
+# Helper function for CLI commands with RPC
+def get_cli_args(cmd_list):
+    if NARA_RPC_URL:
+        return cmd_list + ["--node", NARA_RPC_URL]
+    return cmd_list
 
 # FREE TIER SETTINGS
 MAX_STAKE = 0.1  # Hanya mine kalau stake <= 0.1 NARA atau stakeRequired = False
@@ -72,7 +79,7 @@ def setup_wallet():
     
     # Ambil Address untuk UI
     try:
-        res = subprocess.run(["naracli", "address"], capture_output=True, text=True, timeout=15)
+        res = subprocess.run(get_cli_args(["naracli", "address"]), capture_output=True, text=True, timeout=15)
         addr = clean_ansi(res.stdout).strip()
         if addr:
             stats["address"] = addr
@@ -84,7 +91,7 @@ def setup_wallet():
 
 def sync_blockchain_balance():
     try:
-        res = subprocess.run(["naracli", "balance"], capture_output=True, text=True, timeout=20)
+        res = subprocess.run(get_cli_args(["naracli", "balance"]), capture_output=True, text=True, timeout=20)
         output = clean_ansi(res.stdout + res.stderr)
         match = re.search(r"Balance:\s*([\d\.]+)", output)
         if match:
@@ -97,7 +104,7 @@ def sync_blockchain_balance():
 def get_quest_json():
     """Get quest data as JSON with stake info"""
     try:
-        res = subprocess.run(["naracli", "quest", "get", "--json"],
+        res = subprocess.run(get_cli_args(["naracli", "quest", "get", "--json"]),
                           capture_output=True, text=True, timeout=10)
         if res.returncode == 0:
             # Penting: Bersihkan ANSI codes (warna) sebelum di-parse sebagai JSON
@@ -186,7 +193,7 @@ def submit_answer(answer):
         
         try:
             # Meningkatkan timeout ke 120 detik karena ZK proof bisa memakan waktu lama
-            res = subprocess.run(["naracli", "quest", "answer", answer],
+            res = subprocess.run(get_cli_args(["naracli", "quest", "answer", answer]),
                               capture_output=True, text=True, timeout=120)
             
             out = clean_ansi(res.stdout + "\n" + res.stderr).strip()
@@ -225,7 +232,8 @@ def submit_answer(answer):
 
 def bot_engine():
     gevent.sleep(3)
-    add_log("Memulai Mesin Pemantau Kuis V20.0 (Free Tier Only)...", "AI")
+    rpc_info = f" (RPC: {NARA_RPC_URL})" if NARA_RPC_URL else " (Default RPC)"
+    add_log(f"Memulai Mesin Pemantau Kuis V21.0{rpc_info}...", "AI")
     
     if not setup_wallet():
         return
